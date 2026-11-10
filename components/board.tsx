@@ -3039,11 +3039,11 @@ function BoardBase({
               }}
               className={cn(
                 // Vertical lanes: one fixed-width column, full board height.
-                // Horizontal lanes: one fixed-height row spanning the width
-                // (the lanes row scrolls vertically between rows), its cards
-                // flowing rightward inside the row's card list.
+                // Horizontal lanes: one row spanning the width, as tall as its
+                // cards up to a cap (the lanes row scrolls vertically between
+                // rows), its cards flowing rightward inside the row's card list.
                 horizontalLanes
-                  ? "flex h-72 w-full min-h-0 min-w-0 shrink-0 flex-row rounded-lg transition-colors"
+                  ? "flex max-h-72 w-full min-h-0 min-w-0 shrink-0 flex-row rounded-lg transition-colors"
                   : "flex h-full min-h-0 w-64 shrink-0 flex-col rounded-lg transition-colors",
                 familyFloorColumn === column.id
                   // Amber is the family drop color — the same signal the nest
