@@ -33,8 +33,11 @@ export interface SpawnedThread {
  * The board's own new-thread composer: bb's host compose surface in a
  * responsive dialog over the board and pane, so starting a thread never
  * leaves the board (and never opens bb's new-thread window). On submit the
- * request forwards verbatim to `threads.spawn`, which attributes the thread
- * to this plugin; the board opens the spawned thread in the pane.
+ * request forwards to `threads.spawn` with `origin: "app"`, so bb records
+ * the thread as user-started like its own composer's (spawn would otherwise
+ * attribute it to this plugin, and plugins that skip plugin-run threads,
+ * such as genui's inline UI, would skip it); the board opens the spawned
+ * thread in the pane.
  *
  * A parent preset (`parentThreadId`, from the card/pane "New child thread…"
  * actions) changes nothing about the compose surface — the child's prompt,
@@ -294,10 +297,11 @@ export function NewThreadModal({
       // parameter rides here: a parent preset adds `parentThreadId` to the
       // verbatim request — the one field `CreateThreadRequest` takes that
       // makes the spawned thread a child. No parent preset: the request
-      // forwards verbatim, byte-for-byte the plain new-thread flow.
+      // forwards as is. Either way the thread is the operator's, started
+      // from the app like bb's own composer, not a plugin-run thread.
       const spawnArgs = parentThreadId !== undefined
-        ? { ...request, parentThreadId }
-        : request;
+        ? { ...request, parentThreadId, origin: "app" as const }
+        : { ...request, origin: "app" as const };
       try {
         const thread = await sdk.threads.spawn(spawnArgs);
         rememberProjectId?.(thread.projectId);

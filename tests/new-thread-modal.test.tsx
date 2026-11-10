@@ -256,7 +256,8 @@ describe("NewThreadModal", () => {
     await waitFor(() => {
       expect(onSpawned).toHaveBeenCalledWith(SPAWNED);
     });
-    expect(spawn).toHaveBeenCalledWith(REQUEST);
+    // Started from the app, like bb's own composer: not a plugin-run thread.
+    expect(spawn).toHaveBeenCalledWith({ ...REQUEST, origin: "app" });
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
@@ -273,6 +274,7 @@ describe("NewThreadModal", () => {
       environment: REQUEST.environment,
       input: [],
       parentThreadId: "thr_root",
+      origin: "app",
     });
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });

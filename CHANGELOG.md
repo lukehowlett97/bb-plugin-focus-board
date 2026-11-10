@@ -11,6 +11,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+#### The New thread composer
+
+- **Threads started from the board's New thread composer count as yours, not the plugin's.** bb now records them as started from the app, like its own composer, so plugins that skip plugin-run threads stop skipping them. Generative UI's inline components, for one, now reach those threads.
+
 ## [1.7.10] - 2026-11-08
 
 ### Added
