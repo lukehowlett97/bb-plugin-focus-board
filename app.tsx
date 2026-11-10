@@ -3655,12 +3655,13 @@ function BoardPage({ subPath }: { subPath: string }) {
               return next;
             });
             rpc.call("done_set", { threadId: thread.id, done: !isThreadDone }).catch(() => {});
-            // Local and optimistic: the card relocates to the Done lane (or
-            // back out of it) in the same commit as this batch, so the
-            // one-shot reveal can fire now — Board's layout effect
-            // processes it after the move, minimally (an already-visible
-            // destination lane scrolls nothing).
-            requestReveal(thread.id);
+            // Local and optimistic: the card relocates back out of the Done
+            // lane in the same commit as this batch, so the one-shot reveal
+            // can fire now — Board's layout effect processes it after the
+            // move, minimally (an already-visible destination lane scrolls
+            // nothing). Mark Done does NOT reveal: panning to the far-right
+            // Done lane pulls the operator away from the work they're on.
+            if (isThreadDone) requestReveal(thread.id);
             if (!isThreadDone) {
               // Done implies read: a Done card must not still claim unread
               // (and a later Mark Not Done hands the card back read).

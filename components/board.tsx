@@ -850,7 +850,19 @@ function BoardBase({
     }
     return null;
   }, [columns, activeThreadId]);
+  // The open card moving INTO the Done lane (the pane's Done toggle) stays
+  // put: following it would pan the board to the far-right Done lane.
+  const previousActiveRef = useRef<{ threadId: string | null; laneId: string | null }>({
+    threadId: null,
+    laneId: null,
+  });
   useEffect(() => {
+    const previous = previousActiveRef.current;
+    previousActiveRef.current = { threadId: activeThreadId, laneId: activeCardLaneId };
+    const movedIntoDone =
+      previous.threadId === activeThreadId &&
+      previous.laneId !== "done" &&
+      activeCardLaneId === "done";
     const container = scrollRef.current;
     if (container === null || activeThreadId === null) return;
     const keepActiveCardInView = () => {
@@ -883,7 +895,7 @@ function BoardBase({
         }
       }
     };
-    keepActiveCardInView();
+    if (!movedIntoDone) keepActiveCardInView();
     // Pane opening and drag-resizing both change the container's width; the
     // observer re-runs the adjustment for each size change. The re-fit gates
     // on WIDTH: mobile browser chrome (URL bar hide/show, keyboard), banners,
