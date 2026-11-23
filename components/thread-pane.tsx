@@ -195,6 +195,17 @@ interface ActionMenuItem {
 }
 
 /** Exported for the ✨ auto-rename editor tests; ThreadPane renders it. */
+/**
+ * True when Escape was pressed inside a modal dialog that sits outside the
+ * pane (portaled over it), so the pane must leave the key to that dialog.
+ */
+export function escapeOwnedByModal(target: EventTarget | null, pane: HTMLElement | null): boolean {
+  if (!(target instanceof Element)) return false;
+  const modal = target.closest('[aria-modal="true"], [role="dialog"], [role="alertdialog"]');
+  if (modal === null) return false;
+  return pane === null || !modal.contains(pane);
+}
+
 export function EditableTitle({
   title,
   onRename,
@@ -713,6 +724,11 @@ export function ThreadPane({
       if (event.key === "Escape" && !event.defaultPrevented) {
         // An overlay above the pane owns Escape (see escapeSuppressed).
         if (escapeSuppressed) return;
+        // So does a modal another plugin opened over the pane (Gen UI's image
+        // viewer, say): this listener runs in the capture phase, before the
+        // modal's own handler can claim the key, so a press inside an open
+        // modal that the pane does not contain is left to that modal.
+        if (escapeOwnedByModal(event.target, paneRef.current)) return;
         // Inline editors (rename) consume Escape to cancel the edit; let them.
         const target = event.target;
         if (

@@ -268,3 +268,43 @@ describe("Escape stands down while an overlay owns the key (composer modal open)
     expect(onClose).not.toHaveBeenCalled();
   });
 });
+describe("Escape stands down while another plugin's modal is open over the pane", () => {
+  const idle = {
+    id: "thr_test",
+    displayTitle: "Test thread",
+    status: "idle",
+    isUnread: false,
+  } as Parameters<typeof ThreadPane>[0]["thread"];
+
+  function openModal(): HTMLButtonElement {
+    // A modal portaled to the body, as Gen UI's image viewer is, with focus
+    // on its close button.
+    const dialog = document.createElement("div");
+    dialog.setAttribute("role", "dialog");
+    dialog.setAttribute("aria-modal", "true");
+    const close = document.createElement("button");
+    dialog.append(close);
+    document.body.append(dialog);
+    close.focus();
+    return close;
+  }
+
+  afterEach(() => {
+    document.querySelectorAll('[aria-modal="true"]').forEach((el) => el.remove());
+  });
+
+  it("leaves Escape pressed inside the modal to the modal", () => {
+    renderPane(idle);
+    const close = openModal();
+    fireEvent.keyDown(close, { key: "Escape" });
+    expect(onClose).not.toHaveBeenCalled();
+    expect(stop).not.toHaveBeenCalled();
+  });
+
+  it("closes the pane again once focus is back outside any modal", () => {
+    renderPane(idle);
+    openModal();
+    pressEscape();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
