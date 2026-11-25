@@ -62,7 +62,7 @@ describe("the Parked column", () => {
     expect(parked?.threads.map((entry) => entry.id)).toEqual(["p1", "p2"]);
   });
 
-  it("holds a parked thread even when it is running, like Done does", () => {
+  it("shows a parked thread in Working while it runs, and keeps the mark", () => {
     const columns = buildColumns(
       threads,
       "status",
@@ -71,9 +71,25 @@ describe("the Parked column", () => {
       new Set(),
       NOW,
     );
-    expect(columns.find((column) => column.id === "parked")?.threads.map((t) => t.id)).toEqual([
-      "w",
-    ]);
+    expect(columns.find((column) => column.id === "parked")).toBeUndefined();
+    expect(
+      columns.find((column) => column.id === "working")?.threads.map((t) => t.id),
+    ).toContain("w");
+  });
+
+  it("shows a done thread in Working while it runs", () => {
+    const columns = buildColumns(
+      threads,
+      "status",
+      context,
+      new Map(),
+      new Set(["w"]),
+      NOW,
+    );
+    expect(columns.find((column) => column.id === "done")?.threads ?? []).toEqual([]);
+    expect(
+      columns.find((column) => column.id === "working")?.threads.map((t) => t.id),
+    ).toContain("w");
   });
 
   it("Done wins when a thread carries both marks", () => {

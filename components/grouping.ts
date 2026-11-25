@@ -83,7 +83,8 @@ export interface GroupingContext {
   /**
    * Threads in the Parked lane (park_list): set aside to come back to. Like
    * Done, a parked thread leaves every other lane, on every grouping, and
-   * sits in a "Parked" column just before Done. Done wins if both are set.
+   * sits in a "Parked" column just before Done — unless it is working or
+   * needs the operator, when it shows live. Done wins if both are set.
    */
   parkedIds?: ReadonlySet<string>;
 }
@@ -685,14 +686,21 @@ export function buildColumns(
   // Attention board and present (dimmed) on every other grouping.
   // Parked threads likewise leave the live lanes for their own column,
   // just before Done. Done wins if a thread somehow carries both marks.
+  // A Done or Parked thread that is live again — working, or needing the
+  // operator — shows in its live lane instead, so nothing running hides at
+  // the far right. Its mark stays; it drops back once the thread settles.
   const parkedIds = context.parkedIds ?? EMPTY_PARKED;
-  const active = threads.filter(
-    (thread) => !doneIds.has(thread.id) && !parkedIds.has(thread.id),
-  );
-  const done = threads.filter((thread) => doneIds.has(thread.id));
-  const parked = threads.filter(
-    (thread) => parkedIds.has(thread.id) && !doneIds.has(thread.id),
-  );
+  const isLive = (thread: PluginSidebarThread): boolean => {
+    const state = threadState(thread, errorAcks);
+    return state === "working" || state === "attention";
+  };
+  const heldDone = (thread: PluginSidebarThread): boolean =>
+    doneIds.has(thread.id) && !isLive(thread);
+  const heldParked = (thread: PluginSidebarThread): boolean =>
+    parkedIds.has(thread.id) && !doneIds.has(thread.id) && !isLive(thread);
+  const active = threads.filter((thread) => !heldDone(thread) && !heldParked(thread));
+  const done = threads.filter(heldDone);
+  const parked = threads.filter(heldParked);
 
   // Pinned threads (bb's own pin state) lead every board in a far-left
   // column, exactly as they lead bb's own sidebar list.

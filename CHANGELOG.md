@@ -16,6 +16,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 #### Attention lanes
 
 - **Earlier now covers every thread idle for a day or more.** The separate A while ago lane is gone. Saved State filters that picked it now pick Earlier.
+- **A Done or Parked thread that starts working, or needs you, shows in Working or Needs you.** It keeps its mark and drops back into Done or Parked once it settles, so nothing running hides at the far right.
 
 ### Fixed
 

@@ -11,6 +11,11 @@ export const UNRELEASED_ITEMS: readonly { text: string; children: string[]; grou
     "group": "Attention lanes"
   },
   {
+    "text": "**A Done or Parked thread that starts working, or needs you, shows in Working or Needs you.** It keeps its mark and drops back into Done or Parked once it settles, so nothing running hides at the far right.",
+    "children": [],
+    "group": "Attention lanes"
+  },
+  {
     "text": "**The board no longer lags behind an Ambient scene.** Ambient frosts bb's panes with a live blur, and because its scene moves, that blur was redone across the whole board on every frame. While a board is open, the glass now uses Ambient's own solid tier instead: no blur, a near-opaque tint. Other pages keep their frosted glass, and nothing changes with Ambient off.",
     "children": [],
     "group": "The board with Ambient on"
