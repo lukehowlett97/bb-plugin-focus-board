@@ -4,8 +4,8 @@
 // destination. This pins the two things a component test cannot:
 //
 // 1. The row's eligibility comes from the app's ONE sweep law. A child that
-//    the Focus view's Idle · A while ago column would sweep is the same
-//    child the Parent view's Idle · A while ago row sweeps, so the count on
+//    the Focus view's Idle · Earlier column would sweep is the same
+//    child the Parent view's Idle · Earlier row sweeps, so the count on
 //    the pill agrees across the two views for one fixture, and a thread the
 //    law excludes (a live-child parent) is excluded from both.
 // 2. The armed selection survives board churn: clicking a card inside the
@@ -35,7 +35,7 @@ class StubResizeObserver {
 }
 
 /** Family A: one long-idle child. Family B: one long-idle child, so the
- *  Idle · A while ago row spans two lanes when the parent view opens. */
+ *  Idle · Earlier row spans two lanes when the parent view opens. */
 function fixtureThreads() {
   const now = Date.now();
   const base = {
@@ -104,12 +104,12 @@ describe("the Parent view's row sweep runs the app's one sweep law", () => {
     window.localStorage.setItem("focus-board:groupBy", "parent");
     mount("parent");
     await waitFor(() => expect(document.querySelector("[data-parent-board]")).not.toBeNull());
-    await waitFor(() => expect(rowPill("Idle · A while ago").textContent).toBe("2"));
+    await waitFor(() => expect(rowPill("Idle · Earlier").textContent).toBe("2"));
 
     // Armed: the preselect captured the aged-out children of BOTH lanes, and
     // the pill names the same destination the Focus view's idle arm names.
-    fireEvent.click(rowPill("Idle · A while ago"));
-    await waitFor(() => expect(rowPill("Idle · A while ago").textContent).toBe("2 → Done"));
+    fireEvent.click(rowPill("Idle · Earlier"));
+    await waitFor(() => expect(rowPill("Idle · Earlier").textContent).toBe("2 → Done"));
     expect(
       document.querySelector('[data-thread-card="a0"]')?.hasAttribute("data-sweep-highlighted"),
     ).toBe(true);
@@ -118,7 +118,7 @@ describe("the Parent view's row sweep runs the app's one sweep law", () => {
     ).toBe(true);
 
     // Confirm: the same markDone write the Focus view's idle arm performs.
-    fireEvent.click(rowPill("Idle · A while ago"));
+    fireEvent.click(rowPill("Idle · Earlier"));
     await waitFor(() => {
       const calls = fakeRpcCalls().filter((call) => call.method === "done_set");
       expect(calls).toEqual([
@@ -132,13 +132,13 @@ describe("the Parent view's row sweep runs the app's one sweep law", () => {
     // Nesting OFF: with children nested inside their family card, the Focus
     // view has no top-level card in the idle lane at all, so there would be
     // nothing to compare. Flat, the same two children are top-level cards and
-    // the Focus view's Idle · A while ago COLUMN sweeps exactly the two the
+    // the Focus view's Idle · Earlier COLUMN sweeps exactly the two the
     // Parent view's row sweeps.
     window.localStorage.setItem("focus-board:nestChildren", "off");
     window.localStorage.setItem("focus-board:groupBy", "status");
     mount("status");
     await waitFor(() => {
-      const column = document.querySelector('section[data-column-id="idle-awhile"]');
+      const column = document.querySelector('section[data-column-id="idle-earlier"]');
       expect(column).not.toBeNull();
       expect(column?.querySelector("[data-sweep-button]")?.textContent).toBe("2");
     });
@@ -170,10 +170,10 @@ describe("the Parent view's row sweep runs the app's one sweep law", () => {
     window.localStorage.setItem("focus-board:groupBy", "parent");
     mount("parent");
     await waitFor(() => expect(document.querySelector("[data-parent-board]")).not.toBeNull());
-    await waitFor(() => expect(rowPill("Idle · A while ago").textContent).toBe("1"));
+    await waitFor(() => expect(rowPill("Idle · Earlier").textContent).toBe("1"));
 
-    fireEvent.click(rowPill("Idle · A while ago"));
-    await waitFor(() => expect(rowPill("Idle · A while ago").textContent).toBe("1 → Done"));
+    fireEvent.click(rowPill("Idle · Earlier"));
+    await waitFor(() => expect(rowPill("Idle · Earlier").textContent).toBe("1 → Done"));
     // The live-child parent is highlighted nowhere, and clicking it refuses.
     expect(
       document.querySelector('[data-thread-card="m0"]')?.hasAttribute("data-sweep-highlighted"),
@@ -190,10 +190,10 @@ describe("the Parent view's row sweep runs the app's one sweep law", () => {
     window.localStorage.setItem("focus-board:groupBy", "parent");
     mount("parent");
     await waitFor(() => expect(document.querySelector("[data-parent-board]")).not.toBeNull());
-    await waitFor(() => expect(rowPill("Idle · A while ago").textContent).toBe("2"));
+    await waitFor(() => expect(rowPill("Idle · Earlier").textContent).toBe("2"));
 
-    fireEvent.click(rowPill("Idle · A while ago"));
-    await waitFor(() => expect(rowPill("Idle · A while ago").textContent).toBe("2 → Done"));
+    fireEvent.click(rowPill("Idle · Earlier"));
+    await waitFor(() => expect(rowPill("Idle · Earlier").textContent).toBe("2 → Done"));
 
     // Deselect the other lane's card: a click inside the armed ROW must
     // curate the sweep, not disarm it (the row's bands carry the scope, so
@@ -201,10 +201,10 @@ describe("the Parent view's row sweep runs the app's one sweep law", () => {
     fireEvent.pointerDown(cardAnchor("b0"));
     fireEvent.click(cardAnchor("b0"));
     await act(async () => {});
-    expect(rowPill("Idle · A while ago").textContent).toBe("1 → Done");
+    expect(rowPill("Idle · Earlier").textContent).toBe("1 → Done");
 
     // The row is still armed: confirming sweeps exactly the remaining card.
-    fireEvent.click(rowPill("Idle · A while ago"));
+    fireEvent.click(rowPill("Idle · Earlier"));
     await waitFor(() => {
       const calls = fakeRpcCalls().filter((call) => call.method === "done_set");
       expect(calls).toEqual([

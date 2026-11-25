@@ -26,6 +26,12 @@ import {
   type DoneRecord,
 } from "./lib/done-metadata";
 import {
+  PARKED_METADATA_KEY,
+  parseParkedRecord,
+  stampParked,
+  type ParkedRecord,
+} from "./lib/parked-metadata";
+import {
   ERROR_ACK_METADATA_KEY,
   parseErrorAckRecord,
   stampErrorAck,
@@ -194,6 +200,23 @@ export const rpcContract = defineRpcContract({
   done_set: {
     input: z.object({ threadId: z.string().min(1), done: z.boolean() }),
     output: z.object({ done: z.boolean() }),
+  },
+  /**
+   * The Parked lane: threads set aside to come back to. Per-thread plugin
+   * metadata key "parked" → { parkedAt } (lib/parked-metadata). Parked and
+   * Done are mutually exclusive. Other plugins (the thread-lanes sidebar)
+   * call these two across plugins, so their shapes are a public contract.
+   */
+  park_list: {
+    input: z.null(),
+    output: z.object({
+      parkedIds: z.array(z.string()),
+      records: z.record(z.string(), z.object({ parkedAt: z.string().optional() })),
+    }),
+  },
+  park_set: {
+    input: z.object({ threadId: z.string().min(1), parked: z.boolean() }),
+    output: z.object({ parked: z.boolean() }),
   },
   /**
    * Board-linked GitHub items (issue #13): per-thread plugin metadata key
@@ -697,6 +720,10 @@ const ARCHIVE_UNIT_SCHEMA = z.enum(ARCHIVE_UNITS);
  *  (was { count } before the metadata migration); consumers refetch on the
  *  event rather than reading the payload. */
 const DONE_CHANGED = "done-changed";
+/** Realtime signal after every Parked-lane write. Payload is
+ *  { threadId, parked }; consumers refetch park_list. Done writes that clear
+ *  a park publish it too, since the two marks are mutually exclusive. */
+const PARKED_CHANGED = "parked-changed";
 /** Realtime signal after every snooze set/clear/wake. Payload is
  *  { threadId }; consumers refetch the record map. */
 const SNOOZE_CHANGED = "snooze-changed";
@@ -1012,11 +1039,16 @@ export default async function plugin(bb: BbPluginApi) {
     if (done) {
       const existing = await readDoneRecord(threadId);
       const record = stampDone(existing, now);
+      // Done and Parked are mutually exclusive: marking Done lifts a park in
+      // the same metadata write.
+      const wasParked = (await readParkedRecord(threadId)) !== null;
       await bb.sdk.threads.updatePluginMetadata({
         threadId,
         set: { [DONE_METADATA_KEY]: record },
+        ...(wasParked ? { remove: [PARKED_METADATA_KEY] } : {}),
       });
       await addToDoneIndex(threadId);
+      if (wasParked) bb.realtime.publish(PARKED_CHANGED, { threadId, parked: false });
     } else {
       await bb.sdk.threads.updatePluginMetadata({
         threadId,
@@ -1024,6 +1056,52 @@ export default async function plugin(bb: BbPluginApi) {
       });
       await removeFromDoneIndex(threadId);
     }
+  }
+
+  async function readParkedRecord(threadId: string): Promise<ParkedRecord | null> {
+    const namespace = await bb.sdk.threads.getPluginMetadata({ threadId });
+    const value = (namespace as Record<string, JsonValue>)[PARKED_METADATA_KEY];
+    return parseParkedRecord(value);
+  }
+
+  /**
+   * Park or unpark a thread. Parking stamps a fresh parkedAt and clears any
+   * Done mark (the two are mutually exclusive), publishing done-changed when
+   * it did. Unparking only removes the key.
+   */
+  async function writeParkedRecord(threadId: string, parked: boolean): Promise<void> {
+    if (!parked) {
+      await bb.sdk.threads.updatePluginMetadata({ threadId, remove: [PARKED_METADATA_KEY] });
+      return;
+    }
+    const wasDone = (await readDoneRecord(threadId)) !== null;
+    await bb.sdk.threads.updatePluginMetadata({
+      threadId,
+      set: { [PARKED_METADATA_KEY]: stampParked(new Date()) },
+      ...(wasDone ? { remove: [DONE_METADATA_KEY] } : {}),
+    });
+    if (wasDone) {
+      await removeFromDoneIndex(threadId);
+      bb.realtime.publish(DONE_CHANGED, { threadId, done: false });
+    }
+  }
+
+  async function listParkedRecords(): Promise<{
+    parkedIds: string[];
+    records: Record<string, { parkedAt?: string }>;
+  }> {
+    const live = await bb.sdk.threads.list({});
+    const reads = await readBounded(live, (thread) => readParkedRecord(thread.id));
+    const parkedIds: string[] = [];
+    const records: Record<string, { parkedAt?: string }> = {};
+    for (let index = 0; index < reads.length; index += 1) {
+      const record = reads[index];
+      if (record !== null) {
+        parkedIds.push(live[index].id);
+        records[live[index].id] = record;
+      }
+    }
+    return { parkedIds: parkedIds.sort(), records };
   }
 
   async function readPinParkRecord(
@@ -2335,6 +2413,15 @@ export default async function plugin(bb: BbPluginApi) {
       bb.realtime.publish(DONE_CHANGED, { threadId, done });
       return { done };
     },
+    park_list: async () => listParkedRecords(),
+    park_set: async ({ threadId, parked }) => {
+      // A legacy done import must land before a park clears a Done mark,
+      // or a later import could resurrect it.
+      await importLegacyDone();
+      await writeParkedRecord(threadId, parked);
+      bb.realtime.publish(PARKED_CHANGED, { threadId, parked });
+      return { parked };
+    },
     link_list: async () => {
       // The live list only, like pin_parks_list: a link on an archived
       // thread has no chip to drive (the card is not on the board).
@@ -2984,6 +3071,67 @@ export default async function plugin(bb: BbPluginApi) {
     },
   });
 
+  const parkList = cliCommand({
+    summary: "List threads in the Parked lane (threads to come back to)",
+    options: {
+      json: { type: "boolean", description: "Emit machine-readable JSON" },
+    },
+    async run(input) {
+      const [{ parkedIds, records }, live] = await Promise.all([
+        listParkedRecords(),
+        bb.sdk.threads.list({}),
+      ]);
+      const byId = new Map(live.map((thread) => [thread.id, thread]));
+      const rows = parkedIds.map((id) => ({
+        id,
+        title: byId.get(id)?.title ?? byId.get(id)?.titleFallback ?? null,
+        parkedAt: records[id]?.parkedAt ?? null,
+      }));
+      const stdout = input.options.json
+        ? JSON.stringify(rows, null, 2) + "\n"
+        : rows.length === 0
+          ? "No threads are parked.\n"
+          : rows
+              .map((row) => `${row.id}\t${row.parkedAt ?? "(unknown)"}\t${row.title ?? "(untitled)"}`)
+              .join("\n") + "\n";
+      return { exitCode: 0, stdout };
+    },
+  });
+
+  const parkSetCommand = (parked: boolean) =>
+    cliCommand({
+      summary: parked
+        ? "Park threads: move them to the Parked lane (clears Done, idempotent)"
+        : "Unpark threads: take them out of the Parked lane (idempotent)",
+      positionals: [
+        {
+          name: "thread-id",
+          description: parked ? "Thread id(s) to park" : "Thread id(s) to unpark",
+          required: true,
+          variadic: true,
+        },
+      ],
+      options: {
+        json: { type: "boolean", description: "Emit machine-readable JSON" },
+      },
+      async run(input) {
+        await importLegacyDone();
+        const changed: string[] = [];
+        for (const threadId of input.positionals["thread-id"]) {
+          await writeParkedRecord(threadId, parked);
+          bb.realtime.publish(PARKED_CHANGED, { threadId, parked });
+          changed.push(threadId);
+        }
+        const verb = parked ? "parked" : "unparked";
+        const stdout = input.options.json
+          ? JSON.stringify({ [verb]: changed }, null, 2) + "\n"
+          : changed.map((id) => `${verb} ${id}`).join("\n") + "\n";
+        return { exitCode: 0, stdout };
+      },
+    });
+  const parkSet = parkSetCommand(true);
+  const parkClear = parkSetCommand(false);
+
   // Board-linked GitHub items: list/set/clear over the linkedIssues
   // metadata key. The CLI is the operator's fallback when no agent tool is
   // in the session (issue #13's repro had no agent-side surface at all).
@@ -3529,6 +3677,9 @@ export default async function plugin(bb: BbPluginApi) {
         candidates.map(async (thread) => {
           const record = await readDoneRecord(thread.id);
           const snoozeRecord = await readSnoozeRecord(thread.id);
+          // A parked thread was set aside on purpose: the idle sweep never
+          // marks it Done, the same as a kept one.
+          const parkedRecord = await readParkedRecord(thread.id);
           return {
             id: thread.id,
             archived: thread.archivedAt !== null,
@@ -3538,7 +3689,7 @@ export default async function plugin(bb: BbPluginApi) {
               record === null
                 ? null
                 : doneAtToEpochMs(record.doneAt),
-            keep: record?.keep === true || kept[thread.id] === true,
+            keep: record?.keep === true || kept[thread.id] === true || parkedRecord !== null,
             snoozed: snoozeRecord !== null,
             status: thread.status,
             unread:
@@ -4079,11 +4230,14 @@ export default async function plugin(bb: BbPluginApi) {
       name: "focus-board",
       summary: "Manage the Focus Board plugin's own state",
       description:
-        "Done list/mark/clear, feature groups (group list/create/rename/delete/add/remove/move, each taking the id or the exact name), linked tracker items (link list/set/clear), snooze list/set/clear, autotitle availability/probe diagnostics, and sweep (archive old Done + long-idle, dry-run by default). Sweep thresholds live in the declared plugin settings (`bb plugin config focus-board`) and the board settings modal; this CLI no longer carries its own config commands.",
+        "Done list/mark/clear, Parked lane (park list/set/clear), feature groups (group list/create/rename/delete/add/remove/move, each taking the id or the exact name), linked tracker items (link list/set/clear), snooze list/set/clear, autotitle availability/probe diagnostics, and sweep (archive old Done + long-idle, dry-run by default). Sweep thresholds live in the declared plugin settings (`bb plugin config focus-board`) and the board settings modal; this CLI no longer carries its own config commands.",
       commands: {
         "done list": doneList,
         "done mark": doneMark,
         "done clear": doneClear,
+        "park list": parkList,
+        "park set": parkSet,
+        "park clear": parkClear,
         "group list": groupList,
         "group create": groupCreate,
         "group rename": groupRename,

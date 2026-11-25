@@ -80,6 +80,12 @@ export interface GroupingContext {
   groupsByThread?: ReadonlyMap<string, string>;
   /** Feature-group registry names (group id → name), read under the "group" grouping. */
   groupNames?: ReadonlyMap<string, string>;
+  /**
+   * Threads in the Parked lane (park_list): set aside to come back to. Like
+   * Done, a parked thread leaves every other lane, on every grouping, and
+   * sits in a "Parked" column just before Done. Done wins if both are set.
+   */
+  parkedIds?: ReadonlySet<string>;
 }
 
 /**
@@ -153,8 +159,10 @@ const DAY = 24 * HOUR;
 // column orders below reverse them so boards read newest-leftmost. The ids
 // are const literals: the idle-bucket filter values derive from them.
 const AGE_BUCKETS = [
-  { id: "awhile", label: "A while ago", minAge: 7 * DAY, maxAge: Number.POSITIVE_INFINITY },
-  { id: "earlier", label: "Earlier", minAge: DAY, maxAge: 7 * DAY },
+  // "Earlier" covers everything idle a day or more. It absorbed the old
+  // "A while ago" (7d+) bucket; stored ids for that bucket read as Earlier
+  // (LEGACY_AGE_BUCKET_IDS below).
+  { id: "earlier", label: "Earlier", minAge: DAY, maxAge: Number.POSITIVE_INFINITY },
   { id: "today", label: "Today", minAge: HOUR, maxAge: DAY },
   { id: "recent", label: "Recent", minAge: 0, maxAge: HOUR },
 ] as const;
@@ -207,6 +215,16 @@ export const STATE_FILTER_OPTIONS: readonly {
   ...[...IDLE_BUCKETS].reverse().map((bucket) => ({ value: bucket.id, label: bucket.label })),
 ];
 
+/**
+ * Age-bucket ids that no longer exist, mapped to the bucket that absorbed
+ * them, so stored filters, lane prefs and rank keys written before the merge
+ * still resolve. "A while ago" (awhile / idle-awhile) folded into Earlier.
+ */
+export const LEGACY_AGE_BUCKET_IDS: Readonly<Record<string, string>> = {
+  awhile: "earlier",
+  "idle-awhile": "idle-earlier",
+};
+
 export const STATE_FILTER_VALUES: readonly StateFilterValue[] = STATE_FILTER_OPTIONS.map(
   (option) => option.value,
 );
@@ -223,7 +241,8 @@ export function isStateFilterValue(value: string): value is StateFilterValue {
  */
 export function parseStoredStateFilter(values: readonly string[]): StateFilterValue[] {
   const out = new Set<StateFilterValue>();
-  for (const value of values) {
+  for (const raw of values) {
+    const value = LEGACY_AGE_BUCKET_IDS[raw] ?? raw;
     if (value === "idle") {
       for (const bucket of IDLE_BUCKETS) out.add(bucket.id);
     } else if (isStateFilterValue(value)) {
@@ -626,6 +645,8 @@ function frozenLaneHolds(
   return captured.id.startsWith("idle-") && natural.id.startsWith("idle-");
 }
 
+const EMPTY_PARKED: ReadonlySet<string> = new Set();
+
 export function buildColumns(
   threads: readonly PluginSidebarThread[],
   groupBy: GroupBy,
@@ -662,8 +683,16 @@ export function buildColumns(
 ): BoardColumn[] {
   // Threads marked Done form their own column, always farthest right on the
   // Attention board and present (dimmed) on every other grouping.
-  const active = threads.filter((thread) => !doneIds.has(thread.id));
+  // Parked threads likewise leave the live lanes for their own column,
+  // just before Done. Done wins if a thread somehow carries both marks.
+  const parkedIds = context.parkedIds ?? EMPTY_PARKED;
+  const active = threads.filter(
+    (thread) => !doneIds.has(thread.id) && !parkedIds.has(thread.id),
+  );
   const done = threads.filter((thread) => doneIds.has(thread.id));
+  const parked = threads.filter(
+    (thread) => parkedIds.has(thread.id) && !doneIds.has(thread.id),
+  );
 
   // Pinned threads (bb's own pin state) lead every board in a far-left
   // column, exactly as they lead bb's own sidebar list.
@@ -758,6 +787,17 @@ export function buildColumns(
   // stamp, and a stamp-based order would vault those quiet threads above
   // recently active ones. A stored drag order (rank key "done") rides on top
   // of that default, exactly as in every other column.
+  if (parked.length > 0) {
+    columns.push({
+      id: "parked",
+      label: "Parked",
+      threads: sorted(
+        parked,
+        orderForColumn(ranks, columnRankKey(groupBy, "parked")),
+        derivedCompareForDirection(laneOrderDirections["parked"]),
+      ),
+    });
+  }
   if (done.length > 0) {
     columns.push({
       id: "done",

@@ -16,6 +16,8 @@ type Method = keyof typeof rpcContract;
 const validInputs: Record<Method, unknown> = {
   done_list: null,
   done_set: { threadId: "thr_x", done: true },
+  park_list: null,
+  park_set: { threadId: "thr_x", parked: true },
   pin_parks_list: null,
   pin_park_set: { threadId: "thr_x", parked: true },
   error_acks_list: null,

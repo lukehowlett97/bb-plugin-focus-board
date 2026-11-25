@@ -61,7 +61,6 @@ describe("PARENT_LANE_ROW_ORDER and labels", () => {
     expect(parentLaneRowLabel("idle-recent")).toBe("Idle · Recent");
     expect(parentLaneRowLabel("idle-today")).toBe("Idle · Today");
     expect(parentLaneRowLabel("idle-earlier")).toBe("Idle · Earlier");
-    expect(parentLaneRowLabel("idle-awhile")).toBe("Idle · A while ago");
     expect(parentLaneRowLabel("done")).toBe("Done");
   });
 });
@@ -123,8 +122,8 @@ describe("buildParentLanes — row placement", () => {
     expect(idsOf(rowOf(lane, "working"))).toEqual(["work"]);
     expect(idsOf(rowOf(lane, "idle-recent"))).toEqual(["recent"]);
     expect(idsOf(rowOf(lane, "idle-today"))).toEqual(["today"]);
-    expect(idsOf(rowOf(lane, "idle-earlier"))).toEqual(["earlier"]);
-    expect(idsOf(rowOf(lane, "idle-awhile"))).toEqual(["awhile"]);
+    // Earlier absorbed the old 7d+ "A while ago" row.
+    expect(idsOf(rowOf(lane, "idle-earlier"))).toEqual(["earlier", "awhile"]);
   });
 
   it("places Done children in the bottom Done row", () => {
@@ -354,7 +353,7 @@ describe("buildParentLanes — archived children are hidden", () => {
     const archived = thread({ id: "arch", parentThreadId: "p", isArchived: true });
     const lanes = buildParentLanes([parent, live, archived], new Set(), NOW);
     const lane = laneOf(lanes, "p")!;
-    expect(idsOf(rowOf(lane, "idle-awhile"))).toEqual(["live"]);
+    expect(idsOf(rowOf(lane, "idle-earlier"))).toEqual(["live"]);
     expect(lane.rows.every((row) => !idsOf(row.threads).includes("arch"))).toBe(true);
     expect(laneIds(lanes)).toEqual(["p"]);
   });

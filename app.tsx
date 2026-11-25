@@ -448,6 +448,10 @@ function BoardPage({ subPath }: { subPath: string }) {
   );
 
   const [doneIds, setDoneIds] = useState<ReadonlySet<string>>(new Set());
+  // The Parked lane (park_list; lib/parked-metadata): threads set aside to
+  // come back to. Not the pin parks (parkIds), which remember a pin a lane
+  // exit took away. Parked and Done are mutually exclusive.
+  const [laneParkedIds, setLaneParkedIds] = useState<ReadonlySet<string>>(new Set());
   // The board's own GitHub links (metadata "linkedIssues"): the chip surface
   // for items a thread's text never names (issue #13 — no cross-plugin read
   // of the GitHub plugin's link rows exists). Record<string, ThreadLink[]>;
@@ -559,6 +563,12 @@ function BoardPage({ subPath }: { subPath: string }) {
       (result) => setParkIds(new Set(Object.keys(result.parks))),
       () => {}, // Parks gate nothing; an unloadable park list loses no pin.
     ).finally(() => settleMountList("parks"));
+    // The Parked lane rides the done refetch too: the two marks clear each
+    // other server-side, so one pass keeps both sets consistent.
+    rpc.call("park_list").then(
+      (result) => setLaneParkedIds(new Set(result.parkedIds)),
+      () => {}, // Parked is optional state; the board works without it.
+    );
     rpc.call("sweep_config_get").then(
       (result) =>
         setSweepConfig({
@@ -567,7 +577,7 @@ function BoardPage({ subPath }: { subPath: string }) {
         }),
       () => {}, // Settings are optional; defaults apply when unreachable.
     ).finally(() => settleMountList("sweepConfig"));
-  }, [rpc, setDoneIds, setDoneExtras, setParkIds, setSweepConfig]);
+  }, [rpc, setDoneIds, setDoneExtras, setParkIds, setLaneParkedIds, setSweepConfig]);
   const refetchLinks = useCallback(() => {
     rpc.call("link_list").then(
       (result) => setLinksByThread(linksFromRpc(result)),
@@ -593,6 +603,9 @@ function BoardPage({ subPath }: { subPath: string }) {
   const refetchScheduler = useMemo(() => createRefetchScheduler(REFETCH_COALESCE_MS), []);
   useEffect(() => refetchScheduler.dispose, [refetchScheduler]);
   useRealtime("done-changed", () => {
+    refetchScheduler.schedule("done", refetchDoneState);
+  });
+  useRealtime("parked-changed", () => {
     refetchScheduler.schedule("done", refetchDoneState);
   });
   // The board's own link signal mirrors done-changed: every open panel
@@ -1839,8 +1852,9 @@ function BoardPage({ subPath }: { subPath: string }) {
       providers,
       groupsByThread,
       groupNames: new Map(Object.entries(groupRegistry).map(([id, group]) => [id, group.name])),
+      parkedIds: laneParkedIds,
     }),
-    [projects, providers, groupsByThread, groupRegistry],
+    [projects, providers, groupsByThread, groupRegistry, laneParkedIds],
   );
   const groupBoxPlan = useMemo(
     () =>
@@ -3155,6 +3169,30 @@ function BoardPage({ subPath }: { subPath: string }) {
     [actions, clearParkPin, releaseAttentionFor, rpc, sdk],
   );
 
+  // Park or unpark locally (optimistic) and on the server. Parking lifts a
+  // Done mark, the server's mutual-exclusion rule mirrored here so the card
+  // moves in the same commit.
+  const setLaneParked = useCallback(
+    (threadId: string, parked: boolean) => {
+      setLaneParkedIds((current) => {
+        if (current.has(threadId) === parked) return current;
+        const next = new Set(current);
+        if (parked) next.add(threadId);
+        else next.delete(threadId);
+        return next;
+      });
+      if (parked) {
+        setDoneIds((current) => {
+          if (!current.has(threadId)) return current;
+          const next = new Set(current);
+          next.delete(threadId);
+          return next;
+        });
+      }
+      rpc.call("park_set", { threadId, parked }).catch(() => {});
+    },
+    [rpc, setDoneIds, setLaneParkedIds],
+  );
   // The state-truth reaction to a thread BECOMING unread — fired by our own
   // gesture paths (card menu, pane toggle, the non-exit drag onto Unread)
   // and, with the suppression token below, by the native feed when a
@@ -3174,6 +3212,9 @@ function BoardPage({ subPath }: { subPath: string }) {
   const applyUnreadStateEffects = useCallback(
     (threadId: string, options: { suppressParkRestore?: boolean } = {}) => {
       if (options.suppressParkRestore !== true) restoreParkedPin(threadId);
+      // Unread and Parked contradict the same way unread and Done do: a
+      // parked card the operator marks unread comes back out of Parked.
+      if (laneParkedIds.has(threadId)) setLaneParked(threadId, false);
       if (doneIds.has(threadId)) {
         setDoneIds((current) => {
           const next = new Set(current);
@@ -3183,7 +3224,7 @@ function BoardPage({ subPath }: { subPath: string }) {
         rpc.call("done_set", { threadId, done: false }).catch(() => {});
       }
     },
-    [doneIds, restoreParkedPin, rpc, setDoneIds],
+    [doneIds, laneParkedIds, restoreParkedPin, rpc, setDoneIds, setLaneParked],
   );
   /**
    * Suppression token for the drag exit's own read echo: consumed by the
@@ -3202,6 +3243,21 @@ function BoardPage({ subPath }: { subPath: string }) {
   // closure breaks the covered open/close's bailout and the board wakes
   // anyway. These bodies are the JSX's inline handlers moved verbatim —
   // same writes, same timing — into stable callbacks.
+  // Drop on the Parked lane: the Done drop's recipe with the Parked mark.
+  // Parked implies read, like Done, so the card does not come back from
+  // Unpark still claiming unread; a pinned card leaves the Pinned lane.
+  const boardDropParked = useCallback(
+    (threadId: string) => {
+      releaseAttentionFor(new Set([threadId]));
+      const thread = threads.find((candidate) => candidate.id === threadId);
+      setLaneParked(threadId, true);
+      if (thread !== undefined && thread.isUnread) {
+        void actions.setRead(threadId, true);
+      }
+      exitPinnedLane(threadId);
+    },
+    [releaseAttentionFor, threads, setLaneParked, actions, exitPinnedLane],
+  );
   const boardDropDone = useCallback(
     (threadId: string) => {
       // User-initiated: the pin releases for this gesture's move.
@@ -3210,6 +3266,13 @@ function BoardPage({ subPath }: { subPath: string }) {
       const next = new Set(doneIds);
       next.add(threadId);
       setDoneIds(next);
+      // Done and Parked are mutually exclusive; the server clears the park.
+      setLaneParkedIds((current) => {
+        if (!current.has(threadId)) return current;
+        const without = new Set(current);
+        without.delete(threadId);
+        return without;
+      });
       rpc.call("done_set", { threadId, done: true }).catch(() => {});
       // Done implies read: the card must not land in Done still
       // claiming unread (or come back from Mark Not Done unread).
@@ -3256,8 +3319,10 @@ function BoardPage({ subPath }: { subPath: string }) {
       if (thread !== undefined && !thread.isPinned) {
         void actions.setPinned(threadId, true);
       }
+      // Dragging a parked card out to Pinned takes it out of Parked.
+      if (laneParkedIds.has(threadId)) setLaneParked(threadId, false);
     },
-    [releaseAttentionFor, threads, actions],
+    [releaseAttentionFor, threads, actions, laneParkedIds, setLaneParked],
   );
   const boardReparent = useCallback(
     (childId: string, parentThreadId: string | null) => {
@@ -3515,6 +3580,7 @@ function BoardPage({ subPath }: { subPath: string }) {
   const menuActionsFor = useCallback(
     (thread: PluginSidebarThread): readonly CardMenuAction[] => {
       const isThreadDone = doneIds.has(thread.id);
+      const isThreadParked = laneParkedIds.has(thread.id);
       const isThreadSnoozed = snoozedIds.has(thread.id);
       const isThreadKept = doneAgeSource.kept(thread.id);
       // Zoom to family (issue #170): the entry pays off only when the card's
@@ -3539,6 +3605,7 @@ function BoardPage({ subPath }: { subPath: string }) {
         {
           thread,
           isDone: isThreadDone,
+          isParked: isThreadParked,
           isSnoozed: isThreadSnoozed,
           isKept: isThreadKept,
           grouped: groupAssignments[thread.id] !== undefined,
@@ -3646,8 +3713,22 @@ function BoardPage({ subPath }: { subPath: string }) {
             rpc.call("error_ack_set", { threadId: thread.id, acked: true }).catch(() => {});
             requestReveal(thread.id);
           },
+          togglePark: () => {
+            liftSnooze();
+            setLaneParked(thread.id, !isThreadParked);
+            if (isThreadParked) {
+              // Unpark is the undo: the card returns to its live lane, and a
+              // parked pin comes back with it, like Mark Not Done.
+              requestReveal(thread.id);
+              restoreParkedPin(thread.id);
+            } else {
+              if (thread.isUnread) void actions.setRead(thread.id, true);
+              exitPinnedLane(thread.id);
+            }
+          },
           toggleDone: () => {
             liftSnooze();
+            if (!isThreadDone && isThreadParked) setLaneParked(thread.id, false);
             setDoneIds((current) => {
               const next = new Set(current);
               if (isThreadDone) next.delete(thread.id);
@@ -3725,7 +3806,7 @@ function BoardPage({ subPath }: { subPath: string }) {
         },
       }));
     },
-    [actions, applyUnreadStateEffects, clearParkPin, clearSnooze, doneAgeSource, doneIds, exitPinnedLane, familyIndex, filter, groupAssignments, openNewChildThread, pendingStateClaimsRef, persistFilter, persistGroupBy, releaseAttentionFor, requestReveal, restoreParkedPin, runBrowserReveal, rpc, setBrowserNotice, setDoneExtras, setDoneIds, setGroupDialogFor, setSnoozeDialogFor, snoozedIds, sdk],
+    [actions, applyUnreadStateEffects, clearParkPin, clearSnooze, doneAgeSource, doneIds, laneParkedIds, setLaneParked, exitPinnedLane, familyIndex, filter, groupAssignments, openNewChildThread, pendingStateClaimsRef, persistFilter, persistGroupBy, releaseAttentionFor, requestReveal, restoreParkedPin, runBrowserReveal, rpc, setBrowserNotice, setDoneExtras, setDoneIds, setGroupDialogFor, setSnoozeDialogFor, snoozedIds, sdk],
   );
 
   // The readiness gate (issue #403): the loading view holds until the mount
@@ -3928,6 +4009,7 @@ function BoardPage({ subPath }: { subPath: string }) {
             onDropDone={boardDropDone}
             onDropUnread={boardDropUnread}
             onDropPinned={boardDropPinned}
+            onDropParked={boardDropParked}
             rankStore={ranks}
             rawParentOf={familyIndex.rawParentOf}
             onReparent={boardReparent}

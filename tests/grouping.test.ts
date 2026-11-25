@@ -195,7 +195,6 @@ describe("STATE_FILTER_OPTIONS", () => {
       "Idle · Recent",
       "Idle · Today",
       "Idle · Earlier",
-      "Idle · A while ago",
     ]);
   });
 
@@ -249,9 +248,16 @@ describe("state filter: Pinned", () => {
 });
 
 describe("parseStoredStateFilter", () => {
-  it("expands the legacy bare Idle value into all four idle buckets", () => {
+  it("reads the retired A-while-ago bucket as Earlier", () => {
+    expect(parseStoredStateFilter(["idle-awhile", "idle-today"])).toEqual([
+      "idle-earlier",
+      "idle-today",
+    ]);
+    expect(parseStoredStateFilter(["idle-awhile", "idle-earlier"])).toEqual(["idle-earlier"]);
+  });
+
+  it("expands the legacy bare Idle value into all three idle buckets", () => {
     expect(parseStoredStateFilter(["idle"])).toEqual([
-      "idle-awhile",
       "idle-earlier",
       "idle-today",
       "idle-recent",
@@ -427,7 +433,7 @@ describe("columnFor", () => {
     const fresh = columnFor(thread({ updatedAt: NOW - 5 * 1000 }), "status", context, NOW);
     const old = columnFor(thread({ updatedAt: NOW - 8 * DAY }), "status", context, NOW);
     expect(fresh.id).toBe("idle-recent");
-    expect(old.id).toBe("idle-awhile");
+    expect(old.id).toBe("idle-earlier");
   });
 
   it("keeps working threads out of the idle buckets", () => {
@@ -647,7 +653,6 @@ describe("buildColumns", () => {
       "idle-recent",
       "idle-today",
       "idle-earlier",
-      "idle-awhile",
     ]);
   });
 
@@ -665,7 +670,8 @@ describe("buildColumns", () => {
       new Set(),
       NOW,
     );
-    expect(columns.map((c) => c.id)).toEqual(["recent", "today", "earlier", "awhile"]);
+    // "earlier" absorbed the old 7d+ "awhile" bucket.
+    expect(columns.map((c) => c.id)).toEqual(["recent", "today", "earlier"]);
   });
 
   it("freezes a selected thread's column across state changes", () => {

@@ -7,7 +7,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+#### Attention lanes
+
+- **A Parked lane holds threads you mean to come back to.** Park a card from its menu or drag it onto the lane, which sits just before Done. Parked and Done replace each other, the idle sweep never touches a parked thread, and `bb focus-board park list|set|clear` does the same from the terminal.
+
 ### Changed
+
+#### Attention lanes
+
+- **Earlier now covers every thread idle for a day or more.** The separate A while ago lane is gone. Saved State filters that picked it now pick Earlier.
 
 ### Fixed
 

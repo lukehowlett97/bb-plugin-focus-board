@@ -135,7 +135,14 @@ export function sweepCandidatesForIdleColumn(
  */
 export function sweepArmPreselects(columnId: string): boolean {
   if (columnId === "done") return true;
-  return columnId === "idle-awhile" || columnId === "awhile";
+  // Earlier absorbed A while ago (the 7d+ bucket), so it now carries the
+  // aged-out preselect; the legacy ids keep theirs for any stored arm.
+  return (
+    columnId === "idle-earlier" ||
+    columnId === "earlier" ||
+    columnId === "idle-awhile" ||
+    columnId === "awhile"
+  );
 }
 
 export type SweepColumnKind = "done" | "idle-bucket" | "pinned" | "unread";
@@ -159,6 +166,7 @@ export function sweepColumnKind(columnId: string): SweepColumnKind | null {
     columnId === "idle-earlier" ||
     columnId === "idle-today" ||
     columnId === "idle-recent" ||
+    columnId === "earlier" ||
     columnId === "awhile"
   ) {
     return "idle-bucket";

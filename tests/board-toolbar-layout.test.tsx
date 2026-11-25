@@ -282,7 +282,6 @@ describe("BoardToolbar State filter: idle buckets", () => {
       "Idle · Recent",
       "Idle · Today",
       "Idle · Earlier",
-      "Idle · A while ago",
     ]);
   });
 

@@ -17,7 +17,7 @@ const NOW = 10_000_000;
 const context = { projects: [{ id: "p1", name: "One" }], providers: [{ id: "pi" }] };
 
 const doneThread: PluginSidebarThread = thread({ id: "thr_done", status: "idle" });
-// Forty days quiet: lands in the "Idle · A while ago" bucket (idle-awhile).
+// Forty days quiet: lands in the "Idle · Earlier" bucket (idle-earlier).
 const idleThreadFixture: PluginSidebarThread = thread({
   id: "thr_idle_old",
   status: "idle",
@@ -153,8 +153,8 @@ describe("sweep pill copy", () => {
           ),
           doneIds: new Set<string>(),
           sweepCandidatesFor: (columnId) =>
-            columnId === "idle-awhile" ? ["thr_idle_old"] : [],
-          armedSweep: armSweep("idle-awhile", ["thr_idle_old"]),
+            columnId === "idle-earlier" ? ["thr_idle_old"] : [],
+          armedSweep: armSweep("idle-earlier", ["thr_idle_old"]),
         })}
       />,
     );

@@ -49,6 +49,8 @@ export interface CardMenuThreadShape {
 export interface CardMenuInputs {
   thread: CardMenuThreadShape;
   isDone: boolean;
+  /** In the Parked lane (threads to come back to, lib/parked-metadata). */
+  isParked?: boolean;
   isSnoozed: boolean;
   isKept: boolean;
   /** Assigned to a named family box (`lib/group-metadata`)? */
@@ -82,6 +84,8 @@ export interface CardMenuHandlers {
   togglePinned: () => void;
   toggleRead: () => void;
   toggleDone: () => void;
+  /** Park / Unpark: move the card to or out of the Parked lane. */
+  togglePark?: () => void;
   /**
    * Retry (issue #405): re-submits the thread's errored turn through the
    * host's real retry primitive (sdk.threads.retry — the same re-submission
@@ -123,6 +127,8 @@ export function cardMenuActions(
   handlers: CardMenuHandlers,
 ): readonly CardMenuAction[] {
   const { thread, isDone, isSnoozed, isKept, grouped, canClearError, inFamily } = inputs;
+  const isParked = inputs.isParked === true;
+  const togglePark = handlers.togglePark;
   // The shared snooze entries come back with their divider dropped so
   // snooze reads as part of the state group here; the pane's actions
   // menu keeps the builder's own divider — card menu only.
@@ -211,6 +217,16 @@ export function cardMenuActions(
       icon: isDone ? "CircleCheck" : "Check",
       run: handlers.toggleDone,
     },
+    ...(togglePark !== undefined
+      ? [
+          {
+            id: "park",
+            label: isParked ? "Unpark" : "Park",
+            icon: "Bookmark",
+            run: togglePark,
+          } satisfies CardMenuAction,
+        ]
+      : []),
     ...snoozeEntries,
     ...groupEntries,
     ...(inFamily

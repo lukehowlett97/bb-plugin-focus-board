@@ -489,6 +489,11 @@ interface BoardProps {
   /** Drop a card onto the Unread column (Attention grouping only). */
   onDropUnread: (threadId: string) => void;
   /**
+   * Drop a card onto the Parked column (threads to come back to). Optional:
+   * without it the lane is a plain no-drop target.
+   */
+  onDropParked?: (threadId: string) => void;
+  /**
    * Drop a card onto the Pinned column. Optional because pinning is a state
    * change the caller may not wire: the column then stays a no-drop target,
    * exactly as before this prop existed.
@@ -692,6 +697,7 @@ function BoardBase({
   rawParentOf,
   onDropDone,
   onDropUnread,
+  onDropParked,
   onDropPinned,
   onHideLane,
   reveal = null,
@@ -2312,6 +2318,7 @@ function BoardBase({
     if (columnId === "done") return onDropDone;
     if (columnId === "unread") return onDropUnread;
     if (columnId === "pinned") return onDropPinned ?? null;
+    if (columnId === "parked") return onDropParked ?? null;
     return null;
   };
   return (
