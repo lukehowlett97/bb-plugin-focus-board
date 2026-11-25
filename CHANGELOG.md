@@ -11,6 +11,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+#### The board with Ambient on
+
+- **The board no longer lags behind an Ambient scene.** Ambient frosts bb's panes with a live blur, and because its scene moves, that blur was redone across the whole board on every frame. While a board is open, the glass now uses Ambient's own solid tier instead: no blur, a near-opaque tint. Other pages keep their frosted glass, and nothing changes with Ambient off.
+
 #### The New thread composer
 
 - **Threads started from the board's New thread composer count as yours, not the plugin's.** bb now records them as started from the app, like its own composer, so plugins that skip plugin-run threads stop skipping them. Generative UI's inline components, for one, now reach those threads.

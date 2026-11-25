@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { ThreadCard } from "./thread-card";
 import { ThreadCardMenu } from "./thread-card-menu";
 import { useCardSpotlightStyles } from "./card-spotlight";
+import { useAmbientSolidGlass } from "./ambient-solid-glass";
 import { useAttentionPulseGate } from "./attention-pulse-gate";
 import { useDotPulseStyles } from "./dot-pulse";
 import type { ThreadLink } from "../lib/link-metadata";
@@ -353,6 +354,7 @@ function ParentLaneBoardBase({
   // The spotlight rule (components/card-spotlight.ts) is document-global CSS;
   // each board mounts it idempotently, so whichever board renders first wins.
   useCardSpotlightStyles();
+  useAmbientSolidGlass();
   useAttentionPulseGate();
   useDotPulseStyles();
   const scrollRef = useRef<HTMLDivElement | null>(null);

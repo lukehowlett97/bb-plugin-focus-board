@@ -28,6 +28,7 @@ import { StateDot } from "./state-dot";
 import { CardGrid } from "./card-grid";
 import { DEFAULT_GRID_SORT, type GridSort } from "./grid-sort";
 import { useCardSpotlightStyles } from "./card-spotlight";
+import { useAmbientSolidGlass } from "./ambient-solid-glass";
 import { useAttentionPulseGate } from "./attention-pulse-gate";
 import {
   DotGlyph,
@@ -727,6 +728,7 @@ function BoardBase({
   // The spotlight rule (components/card-spotlight.ts) is document-global CSS;
   // each board mounts it idempotently, so whichever board renders first wins.
   useCardSpotlightStyles();
+  useAmbientSolidGlass();
   useAttentionPulseGate();
   // The working dot's rate pulse (issue #279): the keyframes rule the collapsed
   // dots animate through, mounted once per document like the gate above.
