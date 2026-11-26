@@ -96,7 +96,7 @@ describe("the row rail carries a sweep per sweepable row", () => {
   it("puts a pill on the Done and idle rows, and none on Needs you or Working", () => {
     renderBoard(twoIdleFamilies(), { sweepCandidatesFor: () => [] });
     // A sweep exists wherever sweepColumnKind says the row is sweepable.
-    expect(sweepButtonForRow("Idle · A while ago")).toBeTruthy();
+    expect(sweepButtonForRow("Idle · Earlier")).toBeTruthy();
     expect(sweepButtonForRow("Done")).toBeTruthy();
     // ... and nowhere else: the rail still renders the labels, no pill.
     const rail = document.querySelector("[data-rail]")!;
@@ -114,25 +114,25 @@ describe("the row rail carries a sweep per sweepable row", () => {
       sweepCandidatesFor: () => [],
       onSweepArm,
     });
-    const pill = sweepButtonForRow("Idle · A while ago");
+    const pill = sweepButtonForRow("Idle · Earlier");
     expect(pill.textContent).toBe("");
     fireEvent.click(pill);
-    expect(onSweepArm).toHaveBeenCalledWith("idle-awhile");
+    expect(onSweepArm).toHaveBeenCalledWith("idle-earlier");
   });
 
   it("shows the row's candidate count, and the destination word armed", () => {
     renderBoard(twoIdleFamilies(), {
-      sweepCandidatesFor: (rowId) => (rowId === "idle-awhile" ? ["a0", "b0"] : []),
+      sweepCandidatesFor: (rowId) => (rowId === "idle-earlier" ? ["a0", "b0"] : []),
     });
-    expect(sweepButtonForRow("Idle · A while ago").textContent).toBe("2");
+    expect(sweepButtonForRow("Idle · Earlier").textContent).toBe("2");
     // Armed, the pill names the destination — the same map the Focus view
     // uses, so an idle row reads "Done" and a Done row reads "Archive".
     cleanup();
     renderBoard(twoIdleFamilies(), {
-      armedSweep: armSweep("idle-awhile", ["a0", "b0"]),
+      armedSweep: armSweep("idle-earlier", ["a0", "b0"]),
       onSweepConfirm: vi.fn(),
     });
-    expect(sweepButtonForRow("Idle · A while ago").textContent).toBe("2 → Done");
+    expect(sweepButtonForRow("Idle · Earlier").textContent).toBe("2 → Done");
   });
 
   it("the Done row's pill reads its own destination", () => {
@@ -149,7 +149,7 @@ describe("card clicks curate the armed row across every lane", () => {
     const onSweepToggle = vi.fn();
     const onOpenThread = vi.fn();
     renderBoard(twoIdleFamilies(), {
-      armedSweep: armSweep("idle-awhile", ["a0"]),
+      armedSweep: armSweep("idle-earlier", ["a0"]),
       onSweepToggle,
       onOpenThread,
     });
@@ -187,7 +187,7 @@ describe("card clicks curate the armed row across every lane", () => {
     const leaf = thread({ id: "a0c", parentThreadId: "a0", updatedAt: NOW - 40 * DAY });
     const onSweepToggle = vi.fn();
     renderBoard([parent, mid, leaf], {
-      armedSweep: armSweep("idle-awhile", []),
+      armedSweep: armSweep("idle-earlier", []),
       sweepBlockedIds: new Set(["a0"]),
       onSweepToggle,
     });
@@ -201,11 +201,11 @@ describe("card clicks curate the armed row across every lane", () => {
   it("shift-click extends the range across the row's lanes in display order", () => {
     const onSweepRangeSelect = vi.fn();
     renderBoard(twoIdleFamilies(), {
-      armedSweep: armSweep("idle-awhile", []),
+      armedSweep: armSweep("idle-earlier", []),
       onSweepRangeSelect,
     });
     // Lane A locks first, so the row's display order is [a0, b0].
-    expect(laneRowThreads(buildParentLanes(twoIdleFamilies(), new Set(), NOW), "idle-awhile").map((t) => t.id))
+    expect(laneRowThreads(buildParentLanes(twoIdleFamilies(), new Set(), NOW), "idle-earlier").map((t) => t.id))
       .toEqual(["a0", "b0"]);
     fireEvent.click(cardAnchor("a0"));
     fireEvent.click(cardAnchor("b0"), { shiftKey: true });
@@ -231,11 +231,11 @@ describe("the sweep's outcome surfaces on the parent board", () => {
 
   it("a running sweep shows progress on the row's pill", () => {
     renderBoard(twoIdleFamilies(), {
-      armedSweep: armSweep("idle-awhile", ["a0", "b0"]),
-      sweepRun: { columnId: "idle-awhile", total: 2, done: 1, activeId: "b0" },
+      armedSweep: armSweep("idle-earlier", ["a0", "b0"]),
+      sweepRun: { columnId: "idle-earlier", total: 2, done: 1, activeId: "b0" },
       onSweepCancel: vi.fn(),
     });
-    expect(sweepButtonForRow("Idle · A while ago").textContent).toContain("1 of 2");
+    expect(sweepButtonForRow("Idle · Earlier").textContent).toContain("1 of 2");
     // The card in flight carries the throbber.
     expect(
       document
@@ -247,7 +247,7 @@ describe("the sweep's outcome surfaces on the parent board", () => {
   it("an armed row offers the exit, and it cancels", () => {
     const onSweepCancel = vi.fn();
     renderBoard(twoIdleFamilies(), {
-      armedSweep: armSweep("idle-awhile", []),
+      armedSweep: armSweep("idle-earlier", []),
       onSweepCancel,
     });
     const cancel = document.querySelector<HTMLButtonElement>("[data-sweep-cancel]");

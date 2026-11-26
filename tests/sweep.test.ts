@@ -404,7 +404,9 @@ describe("column classification", () => {
     // clear, and running threads cannot be swept out from under themselves.
     expect(sweepColumnKind("attention")).toBeNull();
     expect(sweepColumnKind("working")).toBeNull();
-    expect(sweepColumnKind("earlier")).toBeNull();
+    // Recency's "earlier" absorbed "awhile" (7d+), so it carries that arm now.
+    expect(sweepColumnKind("earlier")).toBe("idle-bucket");
+    expect(sweepColumnKind("parked")).toBeNull();
   });
 
   it("sends each arm to its own destination", () => {
@@ -435,6 +437,9 @@ describe("arm pre-selection", () => {
     expect(sweepArmPreselects("done")).toBe(true);
     expect(sweepArmPreselects("idle-awhile")).toBe(true);
     expect(sweepArmPreselects("awhile")).toBe(true);
+    // Earlier absorbed A while ago, so it inherits the aged-out preselect.
+    expect(sweepArmPreselects("idle-earlier")).toBe(true);
+    expect(sweepArmPreselects("earlier")).toBe(true);
   });
 
   it("every other sweepable arm enters sweep mode with nothing selected", () => {
@@ -444,7 +449,6 @@ describe("arm pre-selection", () => {
     // operator did not build by hand.
     expect(sweepArmPreselects("pinned")).toBe(false);
     expect(sweepArmPreselects("unread")).toBe(false);
-    expect(sweepArmPreselects("idle-earlier")).toBe(false);
     expect(sweepArmPreselects("idle-today")).toBe(false);
     expect(sweepArmPreselects("idle-recent")).toBe(false);
   });

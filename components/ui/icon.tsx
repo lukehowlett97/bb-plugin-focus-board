@@ -13,6 +13,7 @@ import ArrowDown01Icon from "@hugeicons/core-free-icons/ArrowDown01Icon";
 import ArrowLeft01Icon from "@hugeicons/core-free-icons/ArrowLeft01Icon";
 import ArrowRight01Icon from "@hugeicons/core-free-icons/ArrowRight01Icon";
 import BotIcon from "@hugeicons/core-free-icons/BotIcon";
+import Bookmark01Icon from "@hugeicons/core-free-icons/Bookmark01Icon";
 import BubbleChatAddIcon from "@hugeicons/core-free-icons/BubbleChatAddIcon";
 import BubbleChatIcon from "@hugeicons/core-free-icons/BubbleChatIcon";
 import Image01Icon from "@hugeicons/core-free-icons/Image01Icon";
@@ -210,6 +211,7 @@ const CORE_ICON_MAP = {
   AlertCircle: AlertCircleIcon,
   AlertTriangle: Alert02Icon,
   Archive: Archive03Icon,
+  Bookmark: Bookmark01Icon,
   Bot: BotIcon,
   Bug: Bug01Icon,
   Check: Tick02Icon,

@@ -232,7 +232,6 @@ describe("select-all beside the dropdown search bar", () => {
         "idle-recent",
         "idle-today",
         "idle-earlier",
-        "idle-awhile",
       ]),
     });
   });

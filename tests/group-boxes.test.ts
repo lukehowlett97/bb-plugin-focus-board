@@ -238,7 +238,7 @@ describe("planGroupBoxes", () => {
     );
     const columns = buildColumns(threads, "status", context, new Map(), new Set(), NOW);
     const recent = columns.find((column) => column.id === "idle-recent");
-    const older = columns.find((column) => column.id === "idle-awhile");
+    const older = columns.find((column) => column.id === "idle-earlier");
     expect(recent?.threads.map((entry) => entry.id)).toEqual(["thr_new"]);
     expect(older?.threads.map((entry) => entry.id)).toEqual(["thr_old"]);
   });
@@ -376,7 +376,7 @@ describe("planGroupBoxes", () => {
     );
     const columns = buildColumns(threads, "recency", context, new Map(), new Set(), NOW);
     const recent = columns.find((column) => column.id === "recent");
-    const older = columns.find((column) => column.id === "awhile");
+    const older = columns.find((column) => column.id === "earlier");
     expect(recent?.threads.map((entry) => entry.id)).toEqual(["thr_new"]);
     expect(older?.threads.map((entry) => entry.id)).toEqual(["thr_old"]);
   });

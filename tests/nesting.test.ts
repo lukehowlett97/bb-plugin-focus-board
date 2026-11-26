@@ -61,7 +61,6 @@ describe("STATUS_COLUMN_ORDER export", () => {
       "idle-recent",
       "idle-today",
       "idle-earlier",
-      "idle-awhile",
     ]);
   });
 });

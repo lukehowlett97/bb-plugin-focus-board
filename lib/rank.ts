@@ -41,7 +41,7 @@ export type RankStore = Readonly<Record<string, ColumnOrder>>;
  * with the Attention lane's unread column.
  */
 export function columnRankKey(groupBy: GroupBy, columnId: string): string {
-  if (columnId === "pinned" || columnId === "done") return columnId;
+  if (columnId === "pinned" || columnId === "done" || columnId === "parked") return columnId;
   return `${groupBy}:${columnId}`;
 }
 

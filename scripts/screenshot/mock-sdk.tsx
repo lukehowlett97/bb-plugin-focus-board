@@ -1181,7 +1181,27 @@ function adoptHostOp(op: HostOp): void {
   pushThreadUpdate,
 };
 
+// The Parked lane's fixture: `?parked=id1,id2` parks those ids. Absent, no
+// thread is parked, so every existing suite and shot renders as before.
+const simParkedIds = new Set(
+  (new URLSearchParams(globalThis.location?.search ?? "").get("parked") ?? "")
+    .split(",")
+    .filter((id) => id !== ""),
+);
+
 const simRpcBase = async (method: string, args?: unknown): Promise<unknown> => {
+  if (method === "park_list") {
+    const records: Record<string, { parkedAt: string }> = {};
+    for (const id of simParkedIds) records[id] = { parkedAt: new Date(Date.now()).toISOString() };
+    return { parkedIds: [...simParkedIds], records };
+  }
+  if (method === "park_set") {
+    const { threadId, parked } = args as { threadId: string; parked: boolean };
+    if (parked) simParkedIds.add(threadId);
+    else simParkedIds.delete(threadId);
+    simFireRealtime("parked-changed");
+    return { parked };
+  }
   if (method === "done_list") {
     return { doneIds: [...simDoneIds], records: structuredClone(SIM_DONE_RECORDS) };
   }
