@@ -3092,8 +3092,12 @@ function BoardBase({
                   // `group` lights the hover-revealed hide-lane icon.
                   // Vertical: a slim top strip. Horizontal: a narrow left
                   // strip the lane's label stacks down.
+                  // A collapsed horizontal lane is one line: name, count and
+                  // pill side by side, so folding a row gives its height back.
                   horizontalLanes
-                    ? "group flex w-40 shrink-0 flex-col items-start gap-1 pb-1 pl-1 pr-1 pt-1.5 transition-colors"
+                    ? laneCollapsed
+                      ? "group flex w-full items-center gap-1.5 px-1 py-1 transition-colors"
+                      : "group flex w-40 shrink-0 flex-col items-start gap-1 pb-1 pl-1 pr-1 pt-1.5 transition-colors"
                     : "group flex items-center gap-1.5 px-1 pb-1.5 transition-colors",
                   // Grow the hit strip only while a drag flies, and grow it
                   // with negated margins so no card moves beneath the cursor:
@@ -3175,7 +3179,10 @@ function BoardBase({
                       event.stopPropagation();
                       toggleLaneCollapsed(rankKey);
                     }}
-                    className="flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    // A 24px control whose pseudo-element grows the hit area to
+                    // 32 x 40 without moving the header: up, down and left
+                    // only, never right over the lane menu's trigger.
+                    className="relative flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground/60 transition-colors before:absolute before:-inset-y-2 before:-left-2 before:right-0 before:content-[''] hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <Icon
                       name={laneCollapsed ? "ChevronRight" : "ChevronDown"}
