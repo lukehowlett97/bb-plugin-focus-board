@@ -9,12 +9,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 #### Attention lanes
 
+- **Collapse a lane to its header.** The chevron beside a lane's name folds it away and back. Folded lanes stay folded per grouping, and still take drops, so you can drag a card onto a collapsed Parked or Done.
 - **A Parked lane holds threads you mean to come back to.** Park a card from its menu or drag it onto the lane, which sits just before Done. Parked and Done replace each other, the idle sweep never touches a parked thread, and `bb focus-board park list|set|clear` does the same from the terminal.
 
 ### Changed
 
 #### Attention lanes
 
+- **The Parked lane is always on the Attention board.** When nothing is parked it shows an empty lane you can drag a card onto, the way Working always shows.
 - **Earlier now covers every thread idle for a day or more.** The separate A while ago lane is gone. Saved State filters that picked it now pick Earlier.
 - **A Done or Parked thread that starts working, or needs you, shows in Working or Needs you.** It keeps its mark and drops back into Done or Parked once it settles, so nothing running hides at the far right.
 

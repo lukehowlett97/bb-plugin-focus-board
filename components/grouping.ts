@@ -795,7 +795,11 @@ export function buildColumns(
   // stamp, and a stamp-based order would vault those quiet threads above
   // recently active ones. A stored drag order (rank key "done") rides on top
   // of that default, exactly as in every other column.
-  if (parked.length > 0) {
+  // Parked is the board's place for threads to come back to, so on the
+  // Attention board it stays visible even when empty: it is the drop target
+  // for parking a card. Other groupings keep "columns exist only while they
+  // hold cards".
+  if (parked.length > 0 || groupBy === "status") {
     columns.push({
       id: "parked",
       label: "Parked",
