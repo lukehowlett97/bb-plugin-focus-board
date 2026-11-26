@@ -3218,11 +3218,14 @@ function BoardBase({
                       className="flex min-w-0 cursor-pointer items-center gap-0.5 truncate rounded-sm px-1 py-0.5 text-[11px] font-medium transition-colors hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       <span className="truncate">{column.label}</span>
+                      {/* An ellipsis, not a caret: the chevron to the left
+                          of the name folds the lane, so the menu's glyph must
+                          read as "more actions", not as a second fold. */}
                       <Icon
-                        name="ChevronDown"
+                        name="MoreHorizontal"
                         className={cn(
-                          "size-3 shrink-0 text-muted-foreground/60 transition-transform",
-                          laneMenu?.columnId === column.id && "rotate-180",
+                          "size-3 shrink-0 text-muted-foreground/60",
+                          laneMenu?.columnId === column.id && "text-foreground",
                         )}
                         aria-hidden
                       />
