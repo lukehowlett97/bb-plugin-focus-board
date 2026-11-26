@@ -1,5 +1,6 @@
 import {
   memo,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -51,6 +52,7 @@ import { usePointerCoarse } from "@/components/ui/hooks/use-pointer-coarse";
 import { touchDragArmed, useTouchHoldDrag } from "@/components/touch-hold-drag";
 import { useBoardDragAutoscroll } from "@/components/board-drag-autoscroll";
 import { cn } from "@/lib/utils";
+import { COLLAPSED_LANES_KEY, parseCollapsedLanes, toggleCollapsedLane } from "@/lib/collapsed-lanes";
 import {
   childRankKey,
   columnIsRanked,
@@ -744,6 +746,26 @@ function BoardBase({
   // dimension the transport's ghost collapse and arrival grow measure.
   const flowAxis: TransportAxis = laneDirection;
   const horizontalLanes = flowAxis === "horizontal";
+  // Lanes the operator folded to their header (lib/collapsed-lanes), keyed by
+  // rank key so each grouping keeps its own folds. Per browser.
+  const [collapsedLanes, setCollapsedLanes] = useState<ReadonlySet<string>>(() => {
+    try {
+      return parseCollapsedLanes(window.localStorage.getItem(COLLAPSED_LANES_KEY));
+    } catch {
+      return new Set();
+    }
+  });
+  const toggleLaneCollapsed = useCallback((key: string) => {
+    setCollapsedLanes((current) => {
+      const { next, serialized } = toggleCollapsedLane(current, key);
+      try {
+        window.localStorage.setItem(COLLAPSED_LANES_KEY, serialized);
+      } catch {
+        // Storage blocked or full: the fold still holds for this session.
+      }
+      return next;
+    });
+  }, []);
   // The ungrouped view is a card GRID, not a one-lane board (issue #416):
   // every lane affordance below is bypassed — no rank key, no lane header, no
   // sweep pill, no floor, no transport between lanes — and the cards land in
@@ -2607,6 +2629,7 @@ function BoardBase({
             !(blockedIds?.has(threadId) ?? false) &&
             !(column.id === "done" && !doneIds.has(threadId));
           const rankKey = columnRankKey(groupBy, column.id);
+          const laneCollapsed = collapsedLanes.has(rankKey);
           // This lane's transport plays: ghosts ride OUT of `fromColumnId`,
           // arrivals wipe in under `toColumnId` (the card is in the lane's
           // own data — arrival needs no slot param).
@@ -3053,7 +3076,9 @@ function BoardBase({
                 // rows), its cards flowing rightward inside the row's card list.
                 horizontalLanes
                   ? "flex max-h-72 w-full min-h-0 min-w-0 shrink-0 flex-row rounded-lg transition-colors"
-                  : "flex h-full min-h-0 w-64 shrink-0 flex-col rounded-lg transition-colors",
+                  : laneCollapsed
+                    ? "flex h-fit min-h-0 w-64 shrink-0 flex-col self-start rounded-lg transition-colors"
+                    : "flex h-full min-h-0 w-64 shrink-0 flex-col rounded-lg transition-colors",
                 familyFloorColumn === column.id
                   // Amber is the family drop color — the same signal the nest
                   // ring on cards gives — so "un-nests on release" is legible
@@ -3139,6 +3164,25 @@ function BoardBase({
                 }}
               >
                 <span className="flex min-w-0 items-center gap-0.5">
+                  <button
+                    type="button"
+                    data-lane-collapse-toggle=""
+                    aria-expanded={!laneCollapsed}
+                    aria-label={`${laneCollapsed ? "Expand" : "Collapse"} the ${column.label} lane`}
+                    title={laneCollapsed ? "Expand lane" : "Collapse lane"}
+                    onClick={(event) => {
+                      if (touchDragArmed()) return;
+                      event.stopPropagation();
+                      toggleLaneCollapsed(rankKey);
+                    }}
+                    className="flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <Icon
+                      name={laneCollapsed ? "ChevronRight" : "ChevronDown"}
+                      className="size-3 shrink-0"
+                      aria-hidden
+                    />
+                  </button>
                   {/* The lane menu's target: the whole name+caret pair, the
                       toolbar's dropdown idiom (a ChevronDown after the name)
                       rather than a dot glyph — the operator's second pass on
@@ -3287,8 +3331,13 @@ function BoardBase({
               </header>
               <div
                 data-card-list
+                data-lane-collapsed={laneCollapsed ? "" : undefined}
                 className={cn(
                   "min-h-0 flex-1 rounded-lg bg-muted/30 p-1.5",
+                  // A collapsed lane is its header alone; the lane still takes
+                  // drops on its header, so a card can be parked or marked
+                  // done into a folded lane.
+                  laneCollapsed && "hidden",
                   // A touch inside a lane is a pan too (see the board's own
                   // `touch-manipulation` note): the lane keeps both axes, so
                   // a finger that lands on a card still reaches the lane's
@@ -3322,7 +3371,12 @@ function BoardBase({
                     </p>
                   ) : isDropTarget ? (
                     <p className="px-1 py-3 text-center text-xs text-muted-foreground/60">
-                      Drop to {column.id === "done" ? "mark done" : "mark unread"}
+                      Drop to {column.id === "done" ? "mark done" : column.id === "parked" ? "park" : "mark unread"}
+                    </p>
+                  ) : column.id === "parked" ? (
+                    // The ever-present Parked lane says what it is for.
+                    <p className="px-1 py-3 text-center text-xs text-muted-foreground/60">
+                      Drag a card here to come back to it later
                     </p>
                   ) : null
                 ) : null}

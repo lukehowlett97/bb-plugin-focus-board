@@ -71,7 +71,7 @@ describe("the Parked column", () => {
       new Set(),
       NOW,
     );
-    expect(columns.find((column) => column.id === "parked")).toBeUndefined();
+    expect(columns.find((column) => column.id === "parked")?.threads).toEqual([]);
     expect(
       columns.find((column) => column.id === "working")?.threads.map((t) => t.id),
     ).toContain("w");
@@ -92,6 +92,14 @@ describe("the Parked column", () => {
     ).toContain("w");
   });
 
+  it("keeps an empty Parked lane on the Attention board as a drop target", () => {
+    const columns = buildColumns(threads, "status", context, new Map(), new Set(), NOW);
+    const parked = columns.find((column) => column.id === "parked");
+    expect(parked?.threads).toEqual([]);
+    const ids = columns.map((column) => column.id);
+    expect(ids.indexOf("parked")).toBeGreaterThan(ids.indexOf("idle-earlier"));
+  });
+
   it("Done wins when a thread carries both marks", () => {
     const columns = buildColumns(
       threads,
@@ -101,13 +109,13 @@ describe("the Parked column", () => {
       new Set(["d"]),
       NOW,
     );
-    expect(columns.some((column) => column.id === "parked")).toBe(false);
+    expect(columns.find((column) => column.id === "parked")?.threads).toEqual([]);
     expect(columns.find((column) => column.id === "done")?.threads.map((t) => t.id)).toEqual([
       "d",
     ]);
   });
 
-  it("appears on other groupings too, and not at all when nothing is parked", () => {
+  it("appears on other groupings too, and only when something is parked there", () => {
     const recency = buildColumns(
       threads,
       "recency",
@@ -117,7 +125,7 @@ describe("the Parked column", () => {
       NOW,
     );
     expect(recency.at(-1)?.id).toBe("parked");
-    const none = buildColumns(threads, "status", context, new Map(), new Set(), NOW);
+    const none = buildColumns(threads, "recency", context, new Map(), new Set(), NOW);
     expect(none.some((column) => column.id === "parked")).toBe(false);
   });
 

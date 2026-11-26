@@ -181,7 +181,7 @@ describe("filterThreads", () => {
       new Set(),
       NOW,
     );
-    expect(columns.map((c) => c.id)).toEqual(["working", "idle-today"]);
+    expect(columns.map((c) => c.id)).toEqual(["working", "idle-today", "parked"]);
   });
 });
 
@@ -592,7 +592,7 @@ describe("buildColumns", () => {
       new Set(),
       NOW,
     );
-    expect(columns.map((c) => c.id)).toEqual(["working"]);
+    expect(columns.map((c) => c.id)).toEqual(["working", "parked"]);
   });
 
   it("keeps the Working column on the attention board even when nothing runs", () => {
@@ -607,7 +607,7 @@ describe("buildColumns", () => {
       new Set(),
       NOW,
     );
-    expect(columns.map((c) => c.id)).toEqual(["working", "idle-recent"]);
+    expect(columns.map((c) => c.id)).toEqual(["working", "idle-recent", "parked"]);
     const working = columns.find((c) => c.id === "working");
     expect(working?.threads).toEqual([]);
     expect(working?.label).toBe("Working");
@@ -626,7 +626,7 @@ describe("buildColumns", () => {
       new Set(["d"]),
       NOW,
     );
-    expect(columns.map((c) => c.id)).toEqual(["pinned", "working", "done"]);
+    expect(columns.map((c) => c.id)).toEqual(["pinned", "working", "parked", "done"]);
   });
 
   it("orders state lanes by attention priority with newest idle buckets leftmost", () => {
@@ -653,6 +653,7 @@ describe("buildColumns", () => {
       "idle-recent",
       "idle-today",
       "idle-earlier",
+      "parked",
     ]);
   });
 
@@ -684,7 +685,7 @@ describe("buildColumns", () => {
       new Set(),
       NOW,
     );
-    expect(columns.map((c) => c.id)).toEqual(["unread", "working"]);
+    expect(columns.map((c) => c.id)).toEqual(["unread", "working", "parked"]);
   });
 
   it("keeps done threads dimmed-flagged but still grouped by done", () => {
@@ -696,7 +697,7 @@ describe("buildColumns", () => {
       new Set(["1"]),
       NOW,
     );
-    expect(columns.map((c) => c.id)).toEqual(["working", "done"]);
+    expect(columns.map((c) => c.id)).toEqual(["working", "parked", "done"]);
   });
 
   describe("Done column default sort", () => {

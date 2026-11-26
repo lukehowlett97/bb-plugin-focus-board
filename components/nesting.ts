@@ -993,7 +993,8 @@ export function nestUnderParents(
     // even when emptied, reading "No work in progress".
     .filter(
       (column) =>
-        column.threads.length > 0 || (groupBy === "status" && column.id === "working"),
+        column.threads.length > 0 ||
+          (groupBy === "status" && (column.id === "working" || column.id === "parked")),
     );
   // A Done column assembled from nothing but projections still earns its
   // place (buildColumns only creates the lane when a done thread exists, and
